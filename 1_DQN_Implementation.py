@@ -149,7 +149,7 @@ class DQN_Agent():
 
 
 			if (total_t_iter) % 1000== 0:
-				model_name = 'lqn_%d_model.h5' %(i_episode + t_iter)
+				model_name = 'lqn_%d_model.h5' %(total_t_iter)
 				filepath = os.path.join(save_dir, model_name)
 
 				self.model.save(model_name)
