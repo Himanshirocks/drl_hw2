@@ -4,33 +4,29 @@ import keras, tensorflow as tf, numpy as np, gym, sys, copy, argparse
 from keras.layers import Dense
 from keras.models import Sequential
 from keras.optimizers import Adam
+import os
 
-episodes = 100
+class QNetwork():
 
+	# This class essentially defines the network architecture. 
+	# The network should take in state of the world as an input, 
+	# and output Q values of the actions available to the agent as the output. 
 
-# class QNetwork():
+	def __init__(self, environment_name):
 
-# 	# This class essentially defines the network architecture. 
-# 	# The network should take in state of the world as an input, 
-# 	# and output Q values of the actions available to the agent as the output. 
+		pass
 
-# 	def __init__(self, environment_name):
-# 	# Define your network architecture here. It is also a good idea to define any training operations 
-# 	# and optimizers here, initialize your variables, or alternately compile your model here.
-# 	pass
+	def save_model_weights(self, suffix):
+	# Helper function to save your model / weights.
+		pass
 
+	def load_model(self, model_file):
+	# Helper function to load an existing model.
+		pass
 
-# 	def save_model_weights(self, suffix):
-# 	# Helper function to save your model / weights.
-# 	pass
-
-# 	def load_model(self, model_file):
-# 	# Helper function to load an existing model.
-# 	pass
-
-# 	def load_model_weights(self,weight_file):
-# 	# Helper funciton to load model weights. 
-# 	pass
+	def load_model_weights(self,weight_file):
+	# Helper funciton to load model weights. 
+		pass
 
 class Replay_Memory():
 
@@ -77,14 +73,16 @@ class DQN_Agent():
 
 		if environment_name == 'MountainCar-v0':
 			self.gamma = 1
-			self.iterations = 4000
+			self.episodes = 3000 #given in handout
+			self.iterations = 100000
 		elif environment_name == 'CartPole-v0':
 			self.gamma = 0.99
-			self.iterations = 1000000
+			self.iterations = 1000000 #given in handout
+			self.episodes = 3000
 		self.alpha = 0.0001
 		self.epsilon = 0.5
+		episodes = 100
 
-		# self.model = self._build_model()
 		self.model = Sequential()
 		self.model.add(Dense(self.action_size, input_dim=self.state_size,use_bias=True, activation='linear'))
 		self.model.compile(loss='mse', optimizer=Adam(lr=self.alpha))
@@ -97,7 +95,7 @@ class DQN_Agent():
 		if(rand<=self.epsilon):
 			return np.random.randint(0,self.action_size)
 		else:
-			return np.argmax(q_values) 
+			return self.greedy_policy(q_values) 
 
 	def greedy_policy(self, q_values):
 		# Creating greedy policy for test time. 
@@ -108,26 +106,31 @@ class DQN_Agent():
 		# If training without experience replay_memory, then you will interact with the environment 
 		# in this function, while also updating your network parameters. 
 
-		env = self.env
+		save_dir = os.path.join(os.getcwd(), 'saved_models')
+		if not os.path.isdir(save_dir):
+			os.makedirs(save_dir)
+		os.chdir(save_dir)
 
-		for t_iter in range(self.iterations):
-			state = env.reset()
-			# state = np.reshape(state,[1,self.state_size])	
+
+		for i_episode in range(self.episodes):
+			state = self.env.reset()
+			state = np.reshape(state,[1,self.state_size])	
 			# print(self.model.predict(state))
-			print('iteration no ',t_iter)
+			print('iteration no ',i_episode)
 
-			while True:
-				action = self.epsilon_greedy_policy(self.model.predict(state))
-				env.render()
-				next_state, reward, done, info = env.step(action)
+			for t_iter in range(self.iterations):
+				if t_iter>=100000:
+					self.epsilon = self.epsilon - 0.45e-05 #decay epsilon
+				action = self.epsilon_greedy_policy(self.model.predict(state)) 
+				self.env.render()
+				next_state, reward, done, info = self.env.step(action)
 				next_state = np.reshape(state,[1,self.state_size])	
 				if done:
 					q_value_prime = reward
 					q_value_target = self.model.predict(state)
 					q_value_target[0][action] = q_value_prime
 					self.model.fit(state,q_value_target,epochs=1, verbose=0)
-					print('episode end')
-					print(self.model.layer.get_weights())
+					print("Episode finished after {} iterations".format(t_iter+1))
 					break
 				else:
 					q_value_prime = reward + self.gamma * np.max(self.model.predict(next_state)[0])
@@ -136,6 +139,13 @@ class DQN_Agent():
 				q_value_target[0][action] = q_value_prime
 				self.model.fit(state,q_value_target,epochs=1, verbose=0)
 				state = next_state
+
+
+			if (i_episode + t_iter) % 2== 0:
+				model_name = 'lqn_%d_model.h5' %(i_episode + t_iter)
+				filepath = os.path.join(save_dir, model_name)
+
+				self.model.save(model_name)
 
 
 		# If you are using a replay memory, you should interact with environment here, and store these 
