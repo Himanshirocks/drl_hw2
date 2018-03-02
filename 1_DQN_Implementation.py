@@ -74,11 +74,11 @@ class DQN_Agent():
 		if environment_name == 'MountainCar-v0':
 			self.gamma = 1
 			self.episodes = 3000 #given in handout
-			self.iterations = 100000
+			self.iterations = 100000 #check how many, stops at 200
 		elif environment_name == 'CartPole-v0':
 			self.gamma = 0.99
 			self.iterations = 1000000 #given in handout
-			self.episodes = 3000
+			self.episodes = 3000 #check how many
 		self.alpha = 0.0001
 		self.epsilon = 0.5
 		episodes = 100
@@ -111,26 +111,33 @@ class DQN_Agent():
 			os.makedirs(save_dir)
 		os.chdir(save_dir)
 
+		total_t_iter = 0
 
 		for i_episode in range(self.episodes):
 			state = self.env.reset()
 			state = np.reshape(state,[1,self.state_size])	
 			# print(self.model.predict(state))
-			print('iteration no ',i_episode)
+			print('Episode no ',i_episode)
+			total_reward = 0
+
+			if total_t_iter>=100000:
+				self.epsilon = self.epsilon - 0.45e-05 #decay epsilon
+			# print(self.epsilon)		
 
 			for t_iter in range(self.iterations):
-				if t_iter>=100000:
-					self.epsilon = self.epsilon - 0.45e-05 #decay epsilon
+
 				action = self.epsilon_greedy_policy(self.model.predict(state)) 
 				self.env.render()
 				next_state, reward, done, info = self.env.step(action)
 				next_state = np.reshape(state,[1,self.state_size])	
+				total_reward+=reward
+				total_t_iter+=t_iter
 				if done:
 					q_value_prime = reward
 					q_value_target = self.model.predict(state)
 					q_value_target[0][action] = q_value_prime
 					self.model.fit(state,q_value_target,epochs=1, verbose=0)
-					print("Episode finished after {} iterations".format(t_iter+1))
+					print("Episode finished after {} iterations with %d rewards".format(t_iter+1)%(total_reward)) 
 					break
 				else:
 					q_value_prime = reward + self.gamma * np.max(self.model.predict(next_state)[0])
@@ -141,11 +148,12 @@ class DQN_Agent():
 				state = next_state
 
 
-			if (i_episode + t_iter) % 2== 0:
+			if (total_t_iter) % 1000== 0:
 				model_name = 'lqn_%d_model.h5' %(i_episode + t_iter)
 				filepath = os.path.join(save_dir, model_name)
 
 				self.model.save(model_name)
+		print("Total iterations is %d" %(total_t_iter))
 
 
 		# If you are using a replay memory, you should interact with environment here, and store these 
